@@ -9,7 +9,10 @@ import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
-import android.widget.Toast;
+
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -32,29 +35,35 @@ public class MainActivity extends ActionBarActivity {
         //表示準備
         this.textView = (TextView) findViewById(R.id.textview);
 
+        GraphView graph = (GraphView) findViewById(R.id.graph);
+        mSeries = new LineGraphSeries<DataPoint>();
+        graph.addSeries(mSeries);
+        graph.getViewport().setXAxisBoundsManual(true);
+        graph.getViewport().setYAxisBoundsManual(true);
+        graph.getViewport().setMinX(0);
+        graph.getViewport().setMaxX(60);
+        graph.getViewport().setMinY(-5);
+        graph.getViewport().setMaxY(5);
+
         //ファイル書き込み準備
         try {
             OutputStream outputStream = openFileOutput("log.txt", MODE_APPEND);
             this.writer = new PrintWriter(new OutputStreamWriter(outputStream, "UTF-8"));
+            this.writer.append("\n=========\n");
+            this.writer.append(Utils.getNowDate() + "\n");
         }
         catch (IOException e){
-            Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT);
+            //Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT);
         }
 
         //Sensorの準備
         SensorManager sm = (SensorManager) getSystemService(SENSOR_SERVICE);
         smh = new SensorManagerHelper(sm, sm.SENSOR_DELAY_GAME);
-        //smh.addSensorEventListener(Sensor.TYPE_GYROSCOPE, printableListener);
-        //smh.addSensorEventListener(Sensor.TYPE_ACCELEROMETER, printableListener);
-        //smh.addSensorEventListener(Sensor.TYPE_GYROSCOPE, printableListener);
-        //smh.addSensorEventListener(Sensor.TYPE_LINEAR_ACCELERATION, printableListener);
-        //smh.addSensorEventListener(Sensor.TYPE_ROTATION_VECTOR, printableListener);
-
-        smh.addSensorEventListener(Sensor.TYPE_ACCELEROMETER, loggingListener);
-        smh.addSensorEventListener(Sensor.TYPE_GRAVITY, loggingListener);
-        smh.addSensorEventListener(Sensor.TYPE_GYROSCOPE, loggingListener);
+        //smh.addSensorEventListener(Sensor.TYPE_ACCELEROMETER, loggingListener);
+        //smh.addSensorEventListener(Sensor.TYPE_GRAVITY, loggingListener);
+        //smh.addSensorEventListener(Sensor.TYPE_GYROSCOPE, loggingListener);
         smh.addSensorEventListener(Sensor.TYPE_LINEAR_ACCELERATION, loggingListener);
-        smh.addSensorEventListener(Sensor.TYPE_ROTATION_VECTOR, loggingListener);
+        //smh.addSensorEventListener(Sensor.TYPE_ROTATION_VECTOR, loggingListener);
         //Android4.4だとステップカウンターなるものがあって、歩数をカウントしてくれるらしい・・。
     }
 
@@ -100,19 +109,8 @@ public class MainActivity extends ActionBarActivity {
         this.writer.close();
     }
 
-
-    //表示用リスナー
-    private final SensorEventListener printableListener = new SensorEventListener() {
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-            float[] values = event.values;
-            textView.append(String.format("%s\t%f\t%f\t%f\n", event.sensor.getName(), values[0], values[1], values[2]));
-        }
-
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        }
-    };
+    private double graph2LastXValue = 5d;
+    private LineGraphSeries<DataPoint> mSeries;
 
     //ロギング用リスナー
     private final SensorEventListener loggingListener = new SensorEventListener() {
@@ -120,8 +118,15 @@ public class MainActivity extends ActionBarActivity {
         public void onSensorChanged(SensorEvent event) {
             float[] values = event.values;
             try {
-                String data = event.sensor.getName() + "\t" + values[0] + "\t" + values[1] + "\t" + values[2] + "\n";
-                writer.append(data);
+                writer.append(event.sensor.getName() + "\t" + values[0] + "\t" + values[1] + "\t" + values[2] + "\n");
+
+                graph2LastXValue += 1d;
+                mSeries.appendData(new DataPoint(graph2LastXValue, values[2]), true, 60);
+
+                String data = event.sensor.getName() +
+                        "\nx_axis: " + values[0] +
+                        "\ny_axis: " + values[1] +
+                        "\nz_axis: " + values[2] + "\n";
                 textView.setText(data, TextView.BufferType.EDITABLE);
             }catch (Exception ex){}
         }
